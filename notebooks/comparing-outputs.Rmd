@@ -1,0 +1,51 @@
+---
+title: "comparing-outputs"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+library(tidyverse)
+```
+
+# Read in data 
+
+```{r}
+file <- here::here("run1410a.xlsx")
+sheets <- readxl::excel_sheets(file)
+
+output <- readxl::read_excel(file, sheet = "output") %>%
+  janitor::clean_names()
+
+input <- readxl::read_excel(file, sheet = "input") %>%
+  janitor::clean_names()
+```
+
+# Summarise input 
+
+```{r}
+dplyr::glimpse(input)
+```
+
+Input: 3 columns of numeric? values; 13,945 rows in total
+
+```{r}
+dplyr::glimpse(output)
+```
+
+Output: 3 columns of categorical? values; 1,822 rows in total
+
+# Convert `chr` to fct in the output data frame
+
+```{r}
+output <- output %>%
+  mutate_if(is.character, as.factor)
+```
+
+# Convert `num` to fct in the input data frame 
+
+```{r}
+input <- input %>%
+  mutate_if(is.numeric, as.factor)
+```
+
