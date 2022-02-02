@@ -4,25 +4,81 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+library(tidyverse)
 ```
 
-## R Markdown
+# Read in data 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+file <- here::here("run1410a.xlsx")
+sheets <- readxl::excel_sheets(file)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+output <- readxl::read_excel(file, sheet = "output") %>%
+  janitor::clean_names()
 
-```{r cars}
-summary(cars)
+input <- readxl::read_excel(file, sheet = "input") %>%
+  janitor::clean_names()
 ```
 
-## Including Plots
+# Summarise input 
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+dplyr::glimpse(input)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Input: 3 columns of numeric? values; 13,945 rows in total
+
+```{r}
+dplyr::glimpse(output)
+```
+
+Output: 3 columns of categorical? values; 1,822 rows in total
+
+# Convert `chr` to `dbl` in the output data frame
+
+```{r}
+output <- output %>%
+  mutate_if(is.character, as.double)
+```
+
+# Convert `num` to integer in the input data frame
+```{r}
+input <- input %>%
+  mutate_if(is.numeric, as.integer)
+```
+
+# Skimming the inputs and outputs
+
+```{r}
+skimr::skim(input)
+```
+
+```{r}
+skimr::skim(output)
+```
+
+# Install package locally
+
+```{r}
+install.packages(here::here(), repos = NULL, type = "source")
+```
+
+```{r}
+library(LabourMarketAreas)
+
+trial_run <- LabourMarketAreas::findClusters(Sardinia, 
+                                minSZ = 1000,
+                                minSC = 0.6,
+                                tarSZ = 1,
+                                tarSC = 0.75)
+```
+
+```{r}
+run_colins_data <- LabourMarketAreas::findClusters(input,
+                                                   minSZ = 1000,
+                                                   minSC = 0.6,
+                                                   tarSZ = 1,
+                                                   tarSC = 0.75)
+```
+
