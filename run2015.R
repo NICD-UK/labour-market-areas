@@ -5,6 +5,7 @@ library(dplyr)
 library(readr)
 
 
+
 input_data_2015 <- read_delim(here::here("data/input_data/2015/ttwalsoa.csv"),
                               delim = ";",
                               escape_double = FALSE,
