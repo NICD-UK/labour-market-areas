@@ -15,11 +15,16 @@ library(kableExtra)
 ```{r}
 output_r_2015 <- readRDS(here::here("data/output_2015_data.RDS"))
 R <- output_r_2015$lma$clusterList
-rm(output_r_2015)
 
 # Update the community names so they match the original codes
 ttwa <- read_delim(here::here("data/ttwalsoa.csv"), delim = ";") %>%
   janitor::clean_names()
+
+zones <- unique(ttwa$living)
+zones2 <- unique(ttwa$working)
+zones <- c(zones, zones2)
+zones <- unique(zones)
+
 
 ttwa <- ttwa %>%
   mutate(community = as.integer(as.factor(living)),
@@ -35,8 +40,24 @@ R <- inner_join(R, ttwa) %>%
 rm(ttwa)
 ```
 
+
 # How many clusters were created using the 2015 data
 ```{r}
 length(unique(R$cluster))
+
+R %>% 
+  group_by(cluster) %>%
+  summarise(communities = n())
 ```
 
+```{r}
+# How many communities could not be processed by the algorithm?
+length(output_r_2015$zero.list$Communities)
+
+# Which communities could not be processed by the algorithm?
+zero.list = tibble(community = output_r_2015$zero.list$Communities)
+zero.list <- inner_join(zero.list, ttwa, by = "community") %>%
+  select(living) %>%
+  rename("community" = "living")
+
+```
