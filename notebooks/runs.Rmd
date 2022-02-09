@@ -1,0 +1,51 @@
+---
+  title: "Untitled"
+author: "nicd"
+date: "07/12/2021"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+```
+
+```{r}
+setwd("..")
+ttwalsoa <- read_delim("data/ttwalsoa.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+trial <- ttwalsoa %>%
+  mutate(community_live = as.integer(as.factor(living)),
+         community_work = as.integer(as.factor(working))) %>%
+  rename(amount = totalmoves)
+```
+
+```{r}
+input <- select(trial, -c("living", "working"))
+
+```
+
+```{r}
+setwd("..")
+source("R/LabourMarketAreas_modified.R")
+```
+
+# Convert `num` to integer in the input data frame
+```{r}
+input <- input %>%
+  mutate_if(is.numeric, as.integer)
+```
+
+```{r}
+run_colins_data <- findClusters(input,
+                                minSZ = 3500.0,  # Minimum working residents 
+                                minSC = 0.6667,  # Minimum self-con.
+                                tarSZ = 25000.0, # Target working residents 
+                                tarSC = 0.75)    # Target self-containment 
+```
+
+
+
