@@ -2,6 +2,19 @@
 This repo contains all the files from the [LabourMarketAreas: Identification, Tuning, Visualisation and Analysis of Labour Market Areas](https://cran.r-project.org/web/packages/LabourMarketAreas/index.html)
 
 
+# scr 
+This directory contains the code used to run the findClusters function on the 2015 dataset on the cloud.
+
+# R
+This directory contains the code from the [LabourMarketAreas package Areas](https://cran.r-project.org/web/packages/LabourMarketAreas/index.html) and the modified version. 
+
+# notebooks 
+This directory contains three notesbooks:
+1. runs.Rmd: contains the code needed to run the modified version of findClusters
+2. comparing_clusters_from_example_data.Rmd: contains the code needed to identify how many clusters match exactly from the R and FORTRAN algorithms using the example data (714 clusters)
+2. inspecting_r_2015_output.Rmd: contains the code needed to load the output from the R algorithm using the 2015 data. Only 4 clusters were generated. 
+
+
 # Algorithm
 
 1. Takes as input a list of tuples. Each tuple has an origin zone, a destination zone and a flow.

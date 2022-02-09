@@ -1,0 +1,42 @@
+---
+title: "Comparing Cluster Output the FORTRAN and R Algorithms Example Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(LabourMarketAreas)
+library(purrr)
+library(kableExtra)
+```
+
+
+```{r}
+output_r_2015 <- readRDS(here::here("data/output_2015_data.RDS"))
+R <- output_r_2015$lma$clusterList
+rm(output_r_2015)
+
+# Update the community names so they match the original codes
+ttwa <- read_delim(here::here("data/ttwalsoa.csv"), delim = ";") %>%
+  janitor::clean_names()
+
+ttwa <- ttwa %>%
+  mutate(community = as.integer(as.factor(living)),
+         community_work = as.integer(as.factor(working))) %>%
+  rename(amount = totalmoves) %>%
+  select(living, community) %>%
+  unique()
+
+R <- inner_join(R, ttwa) %>%
+  select(living, cluster) %>%
+  rename("community" = "living")
+
+rm(ttwa)
+```
+
+# How many clusters were created using the 2015 data
+```{r}
+length(unique(R$cluster))
+```
+
