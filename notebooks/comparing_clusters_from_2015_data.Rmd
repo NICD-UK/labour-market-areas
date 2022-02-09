@@ -1,0 +1,269 @@
+---
+title: "Comparing Cluster Output the FORTRAN and R Algorithms Example Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(LabourMarketAreas)
+library(purrr)
+library(kableExtra)
+```
+
+## load data
+```{r}
+FORTRAN <- read_csv(here::here("data/output_from_fortran_2015.csv"), 
+                                    col_names = c("ttwa_name", "cluster"), 
+                    n_max = 42143  # need to find a different solution for this
+                    ) %>%
+  janitor::clean_names() %>%
+  rename("ttwa_number" = "cluster",
+         "zone" = "ttwa_name")
+
+#FORTRAN$real_zone <- gsub("[a-zA-Z0-9]{8,9}", "TRUE", FORTRAN$ttwa_name) 
+
+#FORTRAN <- FORTRAN %>%
+#  filter(real_zone == "TRUE") %>%
+#  select(-real_zone)
+
+
+
+```
+
+```{r}
+output_r_2015 <- readRDS(here::here("data/output_2015_data.RDS"))
+R <- output_r_2015$lma$clusterList
+rm(output_r_2015)
+
+# Update the community names so they match the original codes
+ttwa <- read_delim(here::here("data/ttwalsoa.csv"), delim = ";") %>%
+  janitor::clean_names()
+
+ttwa <- ttwa %>%
+  mutate(community = as.integer(as.factor(living)),
+         community_work = as.integer(as.factor(working))) %>%
+  rename(amount = totalmoves) %>%
+  select(living, community) %>%
+  unique()
+
+R <- inner_join(R, ttwa) %>%
+  select(living, cluster) %>%
+  rename("community" = "living")
+
+rm(ttwa)
+```
+
+
+The aim is to find out how similar the R clusters are to the FORTRAN clusters. 
+
+##
+```{r}
+# Remove the values which are on the zero list
+#FORTRAN <- FORTRAN %>% 
+#  filter(ttwa_number != 0) %>%
+#  select(zone, ttwa_number) %>%
+#  arrange(zone)
+
+# Remove the values which should not have formed a cluster (see notes from Mike)
+#R <- R %>%
+#  filter(!(community %in% as.vector(setdiff(R$community, FORTRAN$zone)))) %>%
+#  select(community, cluster) %>%
+#  arrange(community)
+```
+
+```{r create a list of vectors for each cluster}
+# create a list of vectors for each cluster 
+# summarise clusters as a string of zones in each cluster
+FORTRAN_clus <- FORTRAN %>%
+   group_by(ttwa_number) %>%
+   summarise(
+     alltypes = paste(zone, collapse=", ")
+   )
+
+# save this vector for use later 
+ttwa_number <- as.character(FORTRAN_clus$ttwa_number) 
+
+# split the strings into vectors of strings
+FORTRAN_clus <- FORTRAN_clus %>%
+  map(function(x) strsplit(FORTRAN_clus$alltypes, ","))
+
+# Tidy up, as we only need one list
+FORTRAN_clus <- FORTRAN_clus$ttwa_number
+
+# convert vectors from strings to numeric
+FORTRAN_clus <- FORTRAN_clus %>%
+  lapply(as.numeric)
+
+#FORTRAN_clus <- setNames(FORTRAN_clus,ttwa_number)
+
+
+# REPEAT STEPS FOR R OUTPUT
+R_clus <- R %>%
+   group_by(cluster) %>%
+   summarise(
+     alltypes = paste(community, collapse=", ")
+   )
+
+cluster <- R_clus$cluster
+  
+R_clus <- R_clus %>%
+  map(function(x) strsplit(R_clus$alltypes, ","))
+
+R_clus <- R_clus$cluster
+
+R_clus <- R_clus %>%
+  lapply(as.numeric)
+
+R_clus <- setNames(R_clus,cluster)
+
+```
+
+
+
+# Similarity Score
+
+One way to compare the outputs is to calculate a similarity score, which assigns a value to a cluster to identify how similar it is to a cluster from the other algorithm. 
+
+To calculate the similarity score we first note the length of each cluster then we identify how many communities are present in both clusters before dividing by the longest cluster length.
+
+```{r}
+#jaccard
+similarityscore <- function(vectorA, vectorB) {
+    intersection = length(intersect(vectorA, vectorB))
+    union = length(vectorA) + length(vectorB) - intersection
+    return (intersection/union)
+}
+
+
+# Example
+# vectorA = c(2, 4, 7)
+# vectorB = c(4, 7, 3)
+  
+# similarityscore <- function(vectorA, vectorB){
+#   howlong <- c(3, 3)
+#   x <- 2/3
+#   return(0.6666667)
+# }
+
+
+```
+
+
+```{r calculate similarity score, results = 'hide'}
+# create function to calculate similarity score
+similarityscore <- function(vectorA, vectorB) {
+    intersection = length(intersect(vectorA, vectorB))
+    union = length(vectorA) + length(vectorB) - intersection
+    return (intersection/union)
+}
+
+# calculate the similarity scores for the each R_clus vector against each FORTRAN_clus vector to create a matrix
+#similarity <- sapply(1:772, function(i) map_dbl(FORTRAN_clus,function(x) similarityscore(R_clus[[i]], x)))
+similarity <- sapply(1:785, function(i) map_dbl(R_clus,function(x) similarityscore(FORTRAN_clus[[i]], x)))
+
+# rename the columns
+#cluster <- paste0("R_cluster_number_", seq(1,772, by=1))
+colnames(similarity, do.NULL = FALSE)
+colnames(similarity) <- ttwa_number
+
+# convert to dataframe
+similarity <- as_tibble(similarity)
+# add column for the ttwa_numbers 
+similarity$R_cluster <- cluster
+# reorder columns
+similarity <- similarity %>%
+  select(R_cluster, everything())
+
+# pivot longer so we can compare the similarity scores.
+# Filter out all 0 scores
+sim_summary <- similarity %>% 
+  pivot_longer(!R_cluster, names_to = "F_ttwa_number", values_to = "similarity_score") %>%
+  filter(similarity_score > 0)
+```
+
+```{r}
+#sim_summary$F_ttwa_number <- as.numeric(gsub(".*?([0-9]+).*", "\\1", sim_summary$F_ttwa_number))   
+#sim_summary$R_cluster <- as.numeric(gsub(".*?([0-9]+).*", "\\1", sim_summary$R_cluster)) 
+sim_summary$comparison_index <- 1:nrow(sim_summary)
+sim_summary$R_cluster <- as.numeric(sim_summary$R_cluster)
+sim_summary$F_ttwa_number <- as.numeric(sim_summary$F_ttwa_number)
+
+FORTRAN_comp <- left_join(FORTRAN, sim_summary, by = c("ttwa_number" = "F_ttwa_number"))
+R_comp <- left_join(R, sim_summary, by = c("cluster" = "R_cluster"))
+
+
+FORTRAN2 <- FORTRAN %>%
+   group_by(ttwa_number) %>%
+   summarise(
+     zones_F = paste(zone, collapse=", ")
+   )
+
+R2 <- R %>%
+   group_by(cluster) %>%
+   summarise(
+     commmunities_R = paste(community, collapse=", ")
+   )
+
+sim_summary2 <- left_join(sim_summary, FORTRAN2, by = c("F_ttwa_number" = "ttwa_number"))
+sim_summary2 <- left_join(sim_summary2, R2, by = c("R_cluster" = "cluster"))
+
+```
+
+## Summary of the similarity scores
+```{r, echo=TRUE}
+sim_summary %>%
+  group_by(similarity_score) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) %>%
+  kbl()
+```
+## Exact matches
+
+714 clusters have a similarity score of 1, which means the clusters from the R and FORTRAN algorithms match exactly. 
+
+```{r}
+sim_summary2 %>% 
+  filter(similarity_score == 1) %>%
+  select(-c(comparison_index, similarity_score))
+
+```
+## Partial matches
+
+```{r}
+sim_summary2 %>% 
+  filter(similarity_score != 1)
+
+```
+
+
+```{r}
+# The algoritm in R created 772 clusters. 772-714 = 58 
+sim_summary %>%
+  filter(similarity_score > 0 & similarity_score < 1) %>%
+  group_by(R_cluster) %>%
+  summarise(n = n()) %>%
+  nrow()
+# 58 clusters do not match. This makes sense
+
+# The algoritm in FORTRAN created 785 clusters. 785-714 = 71
+sim_summary %>%
+  filter(similarity_score > 0 & similarity_score < 1) %>%
+  group_by(F_ttwa_number) %>%
+  summarise(n = n()) %>%
+  nrow()
+# 71 clusters do not match. This makes sense.
+
+```
+
+
+
+```{r, eval=FALSE, include=FALSE}
+
+full_comp <- inner_join(FORTRAN_comp, R_comp, by = "comparison_index") %>%
+  select(zone, community, comparison_index, ttwa_number, R_cluster, similarity_score.x)
+
+full_comp %>%
+  filter(similarity_score.x > 0 & similarity_score.x < 1)
+```
+
